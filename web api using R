@@ -1,0 +1,88 @@
+library(httr)
+library(jsonlite)
+library(xml2)
+library(purrr)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+#working directory
+wd<-getwd()
+#loading data
+benignqueries <- read_csv("C:/Users/dell/Downloads/benignqueries.txt")
+view(benignqueries)
+maliciousqueries <- read_csv("C:/Users/dell/Downloads/maliciousqueries.txt")
+view(maliciousqueries)
+#transform into char
+benignqueries<-as.character(benignqueries)
+class(benignqueries)
+maliciousqueries<-as.character(maliciousqueries)
+class(benignqueries)
+#flag::
+g <- benignqueries%in% grepl("[Ss]cript","[Ii]img src","javascript", benignqueries)
+length(g)
+
+#using regular expression(s) string parsing
+r1<-regexpr("<script>[F|f]ound(.*?)</script>", benignqueries[-1])
+r2<-regexpr("<img src>[F|f]ound(.*?)</img scr>",benignqueries)
+r2<-regexpr("<query>[F|f]ound(.*?)|</query>",maliciousqueries)
+res<-regmatches(benignqueries,r)
+#testing with url
+base_url<-"http://www.facebook.com/GET"
+
+#extracting Http response and creating a data frame
+base_url<-paste0(base_url,Sys.getenv("Downloads\benignqueries.txt"))
+myrawresult<-httr::GET(base_url)
+#df2<-myrawresult[-1]
+dplyr::glimpse(myrawresult)
+
+str(myrawresult)
+str(myrawresult$content)
+
+un<-unique(benignqueries[,])
+head(un)
+
+query.names = rownames(myrawresult);myrawresult$headers
+
+df<-as.data.frame(myrawresult$headers,optional = TRUE)
+ df
+df_1<-for (i in benignqueries[-1]) {
+     base_url<-paste0(base_url,Sys.getenv("Downloads\benignqueries.txt"))
+     myrawresult<-httr::GET(base_url)
+     dplyr::glimpse(myrawresult)
+}
+data_frame<-as.dataframe(c(benignqueries,maliciousqueries))
+
+
+#model fittig
+set.seed(1995)
+#create partitioning of the data from original dataset to fit the model
+test_index <- createDataPartition(data_frame, times = 1, p = 0.5, list = FALSE)
+View(test_index)
+train_set<-data_frame %>% slice(-test_index)
+View(train_set)
+test_set<-data_frame %>% slice(test_index)
+#summarizing the data
+parms<-train_set %>% group_by(labels) %>% summarize(avg =mean(r2),sd=sd(r2))
+#applying naive bayes to check which group have max prob outcome when a particular hieght is selected
+model<-naiveBayes(r2~.,data = train_set,usekernel=T)
+#to view contingency table
+print(model)
+#now we use sample()to pick random heights from the trainingset
+plot<-predict(model,train_set[sample(1:524,15,replace = FALSE),])
+#to check the posterior prob we use type as raw
+plot2<-predict(model,train_set[sample(1:524,15,replace = FALSE),],type = "raw")
+#confusion matrix to check the predictions
+p1<-predict(model,train_set)
+tab1<-table(p1,train_set$sex)
+#you can see that 23F are crtly predicted and 397M are correctly predicted by foll cmd
+print(tab1)
+#to check misclassification
+1-sum(diag(tab1))/sum(tab1)
+#applying for test data to check predictions i.e res are same as training data
+p2<-predict(model,test_set)
+tab1<-table(p1,train_set$sex)
+tab2<-table(p2,test_set$sex)
+print(tab2)
+1-sum(diag(tab2))/sum(tab2)
+
+
